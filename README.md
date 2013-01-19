@@ -6,18 +6,12 @@ Drop-in SSL-secured rsync SST script for Percona Cluster.
 Why do I need / want this?
 --------------------------
 
-[Percona Cluster](http://www.percona.com/software/percona-xtradb-cluster) is awesome.  [Galera](http://codership.com/products/galera_replication) is awesome.  It all works great and pretty seamlessly when you're on a 
-secured network or LAN.  As soon as you want to take your cluster to the multi-region level, you need to 
-worry about security.  Unfortunately, the stock SST methods don't support secured communications.  Enter 
-galera-secure-rsync.
+[Percona Cluster](http://www.percona.com/software/percona-xtradb-cluster) is awesome.  [Galera](http://codership.com/products/galera_replication) is awesome.  It all works great and pretty seamlessly when you're on a secured network or LAN.  As soon as you want to take your cluster to the multi-region level, you need to worry about security.  Unfortunately, the stock SST methods don't support secured communications.  Enter galera-secure-rsync.
 
 How does it work?
 -----------------
 
-galera-secure-sync operates almost exactly like wsrep_sst_rsync except that it secures the actual 
-communications with SSL using socat.  You generate a set of client/server credentials, pass them to every 
-node, then change your my.cnf to use the new SST method and pass the directory where the credentials live 
-as the auth parameter.  Voila, secured SST traffic.
+galera-secure-sync operates almost exactly like wsrep_sst_rsync except that it secures the actual communications with SSL using [socat](http://www.dest-unreach.org/socat/).  You generate a set of client/server credentials, pass them to every node, then change your my.cnf to use the new SST method and pass the directory where the credentials live as the auth parameter.  Voila, secured SST traffic.
 
 How to set it up
 ----------------
@@ -52,9 +46,7 @@ Now, update your my.cnf.  Add/edit the follow to match the values below:
     wsrep_sst_method=secure_rsync
     wsrep_sst_auth=/etc/percona/ssl
     
-Start up your nodes according to the Percona Cluster guide (first node to create the cluster, second node 
-pointed at the first to join in) and your second node should connect securely over an SSL tunnel to 
-complete the SST.  Voila! :)
+Start up your nodes according to the Percona Cluster guide (first node to create the cluster, second node pointed at the first to join in) and your second node should connect securely over an SSL tunnel to complete the SST.  Voila! :)
     
     
     
