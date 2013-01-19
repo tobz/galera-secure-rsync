@@ -18,7 +18,11 @@ How to set it up
 
 _These instructions assume default script locations when following Percona's Percona Cluster set-up guide_
 
-First, get a copy of the secure rsync SST script and move it into position.
+First, let's make sure we have openssl and socat.
+
+    yum install socat openssl
+
+Now grab a copy of the secure rsync SST script and move it into position.
 
     git clone git://github.com/tobz/galera-secure-rsync.git
     cd galera-secure-rsync
