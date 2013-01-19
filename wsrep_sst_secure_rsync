@@ -49,14 +49,16 @@ check_pid()
 check_pid_and_port()
 {
     local pid_file=$1
-    local rsync_pid=$(cat $pid_file)
-    local rsync_port=$2
+    local pid=$(cat $pid_file)
+    local port=$2
+    local service=$3
 
     check_pid $pid_file && \
     netstat -anpt 2>/dev/null | \
-    grep LISTEN | grep \:$rsync_port | grep $rsync_pid/rsync >/dev/null
+    grep LISTEN | grep \:$port | grep $pid/$service >/dev/null
 }
 
+# Make sure our magic file is cleared out before starting.
 MAGIC_FILE="$WSREP_SST_OPT_DATA/rsync_sst_complete"
 rm -rf "$MAGIC_FILE"
 
@@ -137,7 +139,8 @@ then
 
     MODULE="rsync_sst"
 
-    RSYNC_PID="$WSREP_SST_OPT_DATA/$MODULE.pid"
+    SOCAT_PID="$WSREP_SST_OPT_DATA/$MODULE-socat.pid"
+    RSYNC_PID="$WSREP_SST_OPT_DATA/$MODULE-rsync.pid"
 
     if check_pid $RSYNC_PID
     then
@@ -147,10 +150,10 @@ then
     rm -rf "$RSYNC_PID"
 
     ADDR=$WSREP_SST_OPT_ADDR
-    RSYNC_PORT=$(echo $ADDR | awk -F ':' '{ print $2 }')
+    SOCAT_PORT=$(echo $ADDR | awk -F ':' '{ print $2 }')
     if [ -z "$RSYNC_PORT" ]
     then
-        RSYNC_PORT=4444
+        SOCAT_PORT=4445
         ADDR="$(echo $ADDR | awk -F ':' '{ print $1 }'):$RSYNC_PORT"
     fi
 
@@ -160,6 +163,7 @@ then
 
     MYUID=$(id -u)
     MYGID=$(id -g)
+    RSYNC_PORT=7777
     RSYNC_CONF="$WSREP_SST_OPT_DATA/$MODULE.conf"
 
 cat << EOF > "$RSYNC_CONF"
@@ -175,10 +179,15 @@ EOF
 
 #    rm -rf "$DATA"/ib_logfile* # we don't want old logs around
 
-    # listen at all interfaces (for firewalled setups)
-    rsync --daemon --port $RSYNC_PORT --config "$RSYNC_CONF"
+    # Start socat and listen for incoming connections, forwarding them to rsync.
+    socat ssl-listen:$SOCAT_PORT,reuseaddr,pf-ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
+    TCP4:127.0.0.1:$RSYNC_PORT &
+    echo $! >$SOCAT_PID
 
-    until check_pid_and_port $RSYNC_PID $RSYNC_PORT
+    # Listen at all interfaces (for firewalled setups) for incoming connections.
+    rsync --daemon --address 127.0.0.1 --port $RSYNC_PORT --config "$RSYNC_CONF"
+
+    until check_pid_and_port $RSYNC_PID $RSYNC_PORT "rsync"
     do
         sleep 0.2
     done
@@ -192,6 +201,7 @@ EOF
         sleep 1
     done
 
+    # Make sure MySQL didn't fail during our SST.
     if ! ps -p $MYSQLD_PID >/dev/null
     then
         echo "Parent mysqld process (PID:$MYSQLD_PID) terminated unexpectedly." >&2
@@ -206,7 +216,8 @@ EOF
         echo "rsync process ended without creating '$MAGIC_FILE'"
     fi
 
-#    cleanup_joiner
+    # Now do our cleanup - stop socat, rsync, remove temporary files, etc.
+    cleanup_joiner
 else
     echo "Unrecognized role: '$WSREP_SST_OPT_ROLE'"
     exit 22 # EINVAL
