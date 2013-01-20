@@ -34,6 +34,10 @@ RSYNC_CONF="$WSREP_SST_OPT_DATA/$MODULE.conf"
 RSYNC_DONOR_PORT=7776
 RSYNC_JOINER_PORT=7777
 
+# Some file locations.
+FLUSHED="$WSREP_SST_OPT_DATA/tables_flushed"
+MAGIC_FILE="$WSREP_SST_OPT_DATA/rsync_sst_complete"
+
 . $(dirname $0)/wsrep_sst_common
 
 cleanup_joiner()
@@ -48,6 +52,17 @@ cleanup_joiner()
     rm -rf "$RSYNC_CONF"
     rm -rf "$MAGIC_FILE"
     rm -rf "$RSYNC_PID"
+    rm -rf "$SOCAT_PID"
+    echo " done." >&2
+}
+
+cleanup_donor()
+{
+    wsrep_log_info "Donor cleanup."
+    local PID=$(cat "$SOCAT_PID" 2>/dev/null || echo 0)
+    [ "0" != "$PID" ] && kill $PID && sleep 0.5 && kill -9 $PID >/dev/null 2>&1 \
+    || :
+    rm -rf "$MAGIC_FILE"
     rm -rf "$SOCAT_PID"
     echo " done." >&2
 }
@@ -71,19 +86,16 @@ check_pid_and_port()
 }
 
 # Make sure our magic file is cleared out before starting.
-MAGIC_FILE="$WSREP_SST_OPT_DATA/rsync_sst_complete"
 rm -rf "$MAGIC_FILE"
 
 if [ "$WSREP_SST_OPT_ROLE" = "donor" ]
 then
-
     if [ $WSREP_SST_OPT_BYPASS -eq 0 ]
     then
-        # Get the path to our "flushed" signal file and clear it out if it already exists.
-        FLUSHED="$WSREP_SST_OPT_DATA/tables_flushed"
+        # Clear out the "flushed" signal file if it already exists.
         rm -rf "$FLUSHED"
 
-        # Instruct the database to flush all tables.
+        # Instruct Galera to flush all tables.
         echo "flush tables"
 
         # Wait for the tables to be flushed and the state to be populated.
@@ -102,9 +114,14 @@ then
         # Exclude all files except directories (schemas) and InnoDB files.
         FILTER=(-f '+ /ib_lru_dump' -f '+ /ibdata*' -f '+ /ib_logfile*' -f '+ */' -f '-! */*')
 
+        trap "exit 32" HUP PIPE
+        trap "exit 3"  INT TERM
+        trap cleanup_donor EXIT
+
         # Start up socat to forward our rsync connections to the joiner.
         socat tcp4:localhost:$RSYNC_DONOR_PORT,reuseaddr \
         ssl:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
+        echo $! >$SOCAT_PID
 
         RC=0
         rsync --archive --quiet --no-times --ignore-times --inplace --delete --whole-file \
@@ -141,8 +158,10 @@ then
     echo "$STATE" >"$MAGIC_FILE"
     rsync --archive --quiet --checksum --delete "$MAGIC_FILE" rsync://localhost:$RSYNC_DONOR_PORT
 
-    echo "done $STATE"
+    # Cleanup socat, other files, etc.
+    cleanup_donor
 
+    echo "done $STATE"
 elif [ "$WSREP_SST_OPT_ROLE" = "joiner" ]
 then
     # See if rsync is already running.
@@ -160,6 +179,7 @@ then
     SOCAT_PORT=$(echo $ADDR | awk -F ':' '{ print $2 }')
     if [ -z "$SOCAT_PORT" ]
     then
+        # No port specified, use the default.
         SOCAT_PORT=4445
         ADDR="$(echo $ADDR | awk -F ':' '{ print $1 }'):$SOCAT_PORT"
     fi
@@ -180,10 +200,8 @@ use chroot = no
         gid = $MYGID
 EOF
 
-#    rm -rf "$DATA"/ib_logfile* # we don't want old logs around
-
     # Start socat and listen for incoming connections, forwarding them to rsync.
-    socat ssl-listen:$SOCAT_PORT,reuseaddr,pf=ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
+    socat SSL-LISTEN:$SOCAT_PORT,reuseaddr,pf=ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
     TCP4:127.0.0.1:$RSYNC_JOINER_PORT &
     echo $! >$SOCAT_PID
 
@@ -205,7 +223,7 @@ EOF
     # Tell Galera we're ready to get our data.
     echo "ready $ADDR/$MODULE"
 
-    # Wait for SST to complete by monitoring for the magic file.
+    # Wait for SST to complete by monitoring for the magic file being written.
     while [ ! -r "$MAGIC_FILE" ] && check_pid "$RSYNC_PID" && \
           ps -p $MYSQLD_PID >/dev/null
     do
