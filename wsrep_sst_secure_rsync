@@ -18,9 +18,21 @@
 
 # This is a reference script for secure rsync-based state snapshot tansfer
 
-SOCAT_PID=
-RSYNC_PID=
-RSYNC_CONF=
+MODULE="rsync_sst"
+
+# Set up our uid/gid.
+MYUID=$(id -u)
+MYGID=$(id -g)
+
+# Set up our PID locations.
+MYSQLD_PID=$WSREP_SST_OPT_PARENT
+SOCAT_PID="$WSREP_SST_OPT_DATA/$MODULE-socat.pid"
+RSYNC_PID="$WSREP_SST_OPT_DATA/$MODULE-rsync.pid"
+
+# Some rsync-specific variables.
+RSYNC_CONF="$WSREP_SST_OPT_DATA/$MODULE.conf"
+RSYNC_DONOR_PORT=7776
+RSYNC_JOINER_PORT=7777
 
 . $(dirname $0)/wsrep_sst_common
 
@@ -90,9 +102,13 @@ then
         # Exclude all files except directories (schemas) and InnoDB files.
         FILTER=(-f '+ /ib_lru_dump' -f '+ /ibdata*' -f '+ /ib_logfile*' -f '+ */' -f '-! */*')
 
+        # Start up socat to forward our rsync connections to the joiner.
+        socat tcp4:localhost:$RSYNC_DONOR_PORT,reuseaddr \
+        ssl:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
+
         RC=0
         rsync --archive --quiet --no-times --ignore-times --inplace --delete --whole-file \
-        "${FILTER[@]}" "$WSREP_SST_OPT_DATA" rsync://$WSREP_SST_OPT_ADDR || RC=$?
+        "${FILTER[@]}" "$WSREP_SST_OPT_DATA" rsync://localhost:$RSYNC_DONOR_PORT || RC=$?
 
         # If we didn't have a successful transfer, let the caller know.
         [ $RC -ne 0 ] && echo "rsync returned code $RC:" >> /dev/stderr
@@ -123,19 +139,12 @@ then
 
     # Send the magic file to the joiner, signaling that the state transfer is complete.
     echo "$STATE" >"$MAGIC_FILE"
-    rsync --archive --quiet --checksum --delete "$MAGIC_FILE" rsync://$WSREP_SST_OPT_ADDR
+    rsync --archive --quiet --checksum --delete "$MAGIC_FILE" rsync://localhost:$RSYNC_DONOR_PORT
 
     echo "done $STATE"
 
 elif [ "$WSREP_SST_OPT_ROLE" = "joiner" ]
 then
-    MODULE="rsync_sst"
-
-    # Set up our PID locations.
-    MYSQLD_PID=$WSREP_SST_OPT_PARENT
-    SOCAT_PID="$WSREP_SST_OPT_DATA/$MODULE-socat.pid"
-    RSYNC_PID="$WSREP_SST_OPT_DATA/$MODULE-rsync.pid"
-
     # See if rsync is already running.
     if check_pid $RSYNC_PID
     then
@@ -159,12 +168,6 @@ then
     trap "exit 3"  INT TERM
     trap cleanup_joiner EXIT
 
-    # Set up our uid/gid and rsync details.
-    MYUID=$(id -u)
-    MYGID=$(id -g)
-    RSYNC_PORT=7777
-    RSYNC_CONF="$WSREP_SST_OPT_DATA/$MODULE.conf"
-
 # Build the rsync configuration file.
 cat << EOF > "$RSYNC_CONF"
 pid file = $RSYNC_PID
@@ -180,8 +183,8 @@ EOF
 #    rm -rf "$DATA"/ib_logfile* # we don't want old logs around
 
     # Start socat and listen for incoming connections, forwarding them to rsync.
-    socat ssl-listen:$SOCAT_PORT,reuseaddr,pf-ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
-    TCP4:127.0.0.1:$RSYNC_PORT &
+    socat ssl-listen:$SOCAT_PORT,reuseaddr,pf=ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
+    TCP4:127.0.0.1:$RSYNC_JOINER_PORT &
     echo $! >$SOCAT_PID
 
     # Wait until socat is up and running and ready.
@@ -191,7 +194,7 @@ EOF
     done
 
     # Listen at all interfaces (for firewalled setups) for incoming connections.
-    rsync --daemon --address 127.0.0.1 --port $RSYNC_PORT --config "$RSYNC_CONF"
+    rsync --daemon --address 127.0.0.1 --port $RSYNC_JOINER_PORT --config "$RSYNC_CONF"
 
     # Wait until rsync is up and running and ready.
     until check_pid_and_port $RSYNC_PID $RSYNC_PORT "rsync"
