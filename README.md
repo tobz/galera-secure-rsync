@@ -6,12 +6,12 @@ Drop-in SSL-secured rsync SST script for Percona Cluster.
 Why do I need / want this?
 --------------------------
 
-[Percona Cluster](http://www.percona.com/software/percona-xtradb-cluster) is awesome.  [Galera](http://codership.com/products/galera_replication) is awesome.  It all works great and pretty seamlessly when you're on a secured network or LAN.  As soon as you want to take your cluster to the multi-region level, you need to worry about security.  Unfortunately, the stock SST methods don't support secured communications.  Enter galera-secure-rsync.
+[Percona Cluster](http://www.percona.com/software/percona-xtradb-cluster) is awesome.  [Galera](http://codership.com/products/galera_replication) is awesome.  It all works great and is easy to setup, but there is no way to secure all the traffic between the nodes out of the box.  Enter galera-secure-rsync.
 
 How does it work?
 -----------------
 
-galera-secure-sync operates almost exactly like wsrep_sst_rsync except that it secures the actual communications with SSL using [socat](http://www.dest-unreach.org/socat/).  You generate a set of client/server credentials, pass them to every node, then change your my.cnf to use the new SST method and pass the directory where the credentials live as the auth parameter.  Voila, secured SST traffic.
+Galera replication communication itself can be secured with SSL, but the SST traffic required to bootstrap a new node has no secure options out of the box. galera-secure-sync operates almost exactly like wsrep_sst_rsync except that it secures the actual communications with SSL using [socat](http://www.dest-unreach.org/socat/).  You generate a set of client/server credentials, pass them to every node, then change your my.cnf to use the new SST method and pass the directory where the credentials live as the auth parameter.  Voila, secured SST traffic to match your secured Galera replication.
 
 How to set it up
 ----------------
