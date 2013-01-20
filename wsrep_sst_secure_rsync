@@ -135,37 +135,43 @@ then
 
 elif [ "$WSREP_SST_OPT_ROLE" = "joiner" ]
 then
-    MYSQLD_PID=$WSREP_SST_OPT_PARENT
-
     MODULE="rsync_sst"
 
+    # Set up our PID locations.
+    MYSQLD_PID=$WSREP_SST_OPT_PARENT
     SOCAT_PID="$WSREP_SST_OPT_DATA/$MODULE-socat.pid"
     RSYNC_PID="$WSREP_SST_OPT_DATA/$MODULE-rsync.pid"
 
+    # See if rsync is already running.
     if check_pid $RSYNC_PID
     then
         echo "rsync daemon already running."
         exit 114 # EALREADY
     fi
+
+    # Clear our the existing rsync PID file.
     rm -rf "$RSYNC_PID"
 
+    # Figure out what our external port should be.
     ADDR=$WSREP_SST_OPT_ADDR
     SOCAT_PORT=$(echo $ADDR | awk -F ':' '{ print $2 }')
-    if [ -z "$RSYNC_PORT" ]
+    if [ -z "$SOCAT_PORT" ]
     then
         SOCAT_PORT=4445
-        ADDR="$(echo $ADDR | awk -F ':' '{ print $1 }'):$RSYNC_PORT"
+        ADDR="$(echo $ADDR | awk -F ':' '{ print $1 }'):$SOCAT_PORT"
     fi
 
     trap "exit 32" HUP PIPE
     trap "exit 3"  INT TERM
     trap cleanup_joiner EXIT
 
+    # Set up our uid/gid and rsync details.
     MYUID=$(id -u)
     MYGID=$(id -g)
     RSYNC_PORT=7777
     RSYNC_CONF="$WSREP_SST_OPT_DATA/$MODULE.conf"
 
+# Build the rsync configuration file.
 cat << EOF > "$RSYNC_CONF"
 pid file = $RSYNC_PID
 use chroot = no
@@ -184,17 +190,25 @@ EOF
     TCP4:127.0.0.1:$RSYNC_PORT &
     echo $! >$SOCAT_PID
 
+    # Wait until socat is up and running and ready.
+    until check_pid_and_port $SOCAT_PID $SOCAT_PORT "socat"
+    do
+        sleep 0.2
+    done
+
     # Listen at all interfaces (for firewalled setups) for incoming connections.
     rsync --daemon --address 127.0.0.1 --port $RSYNC_PORT --config "$RSYNC_CONF"
 
+    # Wait until rsync is up and running and ready.
     until check_pid_and_port $RSYNC_PID $RSYNC_PORT "rsync"
     do
         sleep 0.2
     done
 
+    # Tell Galera we're ready to get our data.
     echo "ready $ADDR/$MODULE"
 
-    # wait for SST to complete by monitoring magic file
+    # Wait for SST to complete by monitoring for the magic file.
     while [ ! -r "$MAGIC_FILE" ] && check_pid "$RSYNC_PID" && \
           ps -p $MYSQLD_PID >/dev/null
     do
@@ -208,6 +222,7 @@ EOF
         exit 32
     fi
 
+    # If we have the magic file, echo the contents to tell Galera what our GTID is now.
     if [ -r "$MAGIC_FILE" ]
     then
         cat "$MAGIC_FILE" # output UUID:seqno
