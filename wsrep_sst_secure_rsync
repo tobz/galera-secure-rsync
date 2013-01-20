@@ -36,7 +36,7 @@ RSYNC_JOINER_PORT=7777
 
 # Some file locations.
 FLUSHED="$WSREP_SST_OPT_DATA/tables_flushed"
-MAGIC_FILE="$WSREP_SST_OPT_DATA/rsync_sst_complete"
+MAGIC_FILE="$WSREP_SST_OPT_DATA/secure_rsync_sst_complete"
 
 . $(dirname $0)/wsrep_sst_common
 
@@ -119,8 +119,8 @@ then
         trap cleanup_donor EXIT
 
         # Start up socat to forward our rsync connections to the joiner.
-        socat tcp4:localhost:$RSYNC_DONOR_PORT,reuseaddr \
-        ssl:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
+        socat TCP4:localhost:$RSYNC_DONOR_PORT,reuseaddr \
+        SSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
         echo $! >$SOCAT_PID
 
         RC=0
@@ -161,7 +161,7 @@ then
     # Cleanup socat, other files, etc.
     cleanup_donor
 
-    echo "done $STATE"
+    echo "done"
 elif [ "$WSREP_SST_OPT_ROLE" = "joiner" ]
 then
     # See if rsync is already running.
@@ -202,7 +202,7 @@ EOF
 
     # Start socat and listen for incoming connections, forwarding them to rsync.
     socat SSL-LISTEN:$SOCAT_PORT,reuseaddr,pf=ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
-    TCP4:127.0.0.1:$RSYNC_JOINER_PORT &
+    TCP4:localhost:$RSYNC_JOINER_PORT &
     echo $! >$SOCAT_PID
 
     # Wait until socat is up and running and ready.
@@ -212,7 +212,7 @@ EOF
     done
 
     # Listen at all interfaces (for firewalled setups) for incoming connections.
-    rsync --daemon --address 127.0.0.1 --port $RSYNC_JOINER_PORT --config "$RSYNC_CONF"
+    rsync --daemon --address localhost --port $RSYNC_JOINER_PORT --config "$RSYNC_CONF"
 
     # Wait until rsync is up and running and ready.
     until check_pid_and_port $RSYNC_PID $RSYNC_PORT "rsync"
