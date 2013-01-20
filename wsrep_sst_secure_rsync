@@ -1,6 +1,6 @@
 #!/bin/bash -ue
 
-# Copyright (C) 2010 Codership Oy
+# Copyright (C) 2013 Toby Lawrence
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 # Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston
 # MA  02110-1301  USA.
 
-# This is a reference script for secure rsync-based state snapshot tansfer
+# This is a reference script for secure rsync-based state snapshot transfer.
 
-MODULE="rsync_sst"
+MODULE="secure_rsync_sst"
 
 # Set up our uid/gid.
 MYUID=$(id -u)
@@ -125,7 +125,7 @@ then
 
         RC=0
         rsync --archive --quiet --no-times --ignore-times --inplace --delete --whole-file \
-        "${FILTER[@]}" "$WSREP_SST_OPT_DATA" rsync://localhost:$RSYNC_DONOR_PORT || RC=$?
+        "${FILTER[@]}" "$WSREP_SST_OPT_DATA" rsync://localhost:$RSYNC_DONOR_PORT/$MODULE || RC=$?
 
         # If we didn't have a successful transfer, let the caller know.
         [ $RC -ne 0 ] && echo "rsync returned code $RC:" >> /dev/stderr
@@ -156,7 +156,7 @@ then
 
     # Send the magic file to the joiner, signaling that the state transfer is complete.
     echo "$STATE" >"$MAGIC_FILE"
-    rsync --archive --quiet --checksum --delete "$MAGIC_FILE" rsync://localhost:$RSYNC_DONOR_PORT
+    rsync --archive --quiet --checksum --delete "$MAGIC_FILE" rsync://localhost:$RSYNC_DONOR_PORT/$MODULE
 
     # Cleanup socat, other files, etc.
     cleanup_donor
