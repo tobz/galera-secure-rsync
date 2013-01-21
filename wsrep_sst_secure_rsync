@@ -18,6 +18,8 @@
 
 # This is a reference script for secure rsync-based state snapshot transfer.
 
+. $(dirname $0)/wsrep_sst_common
+
 MODULE="secure_rsync_sst"
 
 # Set up our uid/gid.
@@ -40,8 +42,6 @@ RSYNC_JOINER_PORT=7777
 # Some file locations.
 FLUSHED="$WSREP_SST_OPT_DATA/tables_flushed"
 MAGIC_FILE="$WSREP_SST_OPT_DATA/secure_rsync_sst_complete"
-
-. $(dirname $0)/wsrep_sst_common
 
 cleanup_joiner()
 {
