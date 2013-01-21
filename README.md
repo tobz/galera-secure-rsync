@@ -31,10 +31,10 @@ Now grab a copy of the secure rsync SST script and move it into position.
 Now you'll need to generate the client/server credentials.
 
     openssl genrsa -out server.key 2048
-    openssl req -new -key server.key -x509 -days 365000 -out server.crt
+    openssl req -new -key server.key -x509 -days 365000 -out server.crt -batch
     cat server.key server.crt >server.pem
     openssl genrsa -out client.key 2048
-    openssl req -new -key client.key -x509 -days 365000 -out client.crt
+    openssl req -new -key client.key -x509 -days 365000 -out client.crt -batch
     cat client.key client.crt >client.pem
     chmod 400 client.* server.*
     chown mysql:mysql client* server.*
