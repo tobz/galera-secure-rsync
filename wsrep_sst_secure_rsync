@@ -123,7 +123,7 @@ then
 
         # Start up socat to forward our rsync connections to the joiner.
         socat TCP4:localhost:$RSYNC_DONOR_PORT,reuseaddr \
-        SSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
+        OPENSSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
         echo $! >$SOCAT_PID
 
         RC=0
@@ -204,7 +204,7 @@ use chroot = no
 EOF
 
     # Start socat and listen for incoming connections, forwarding them to rsync.
-    socat SSL-LISTEN:$SOCAT_PORT,reuseaddr,pf=ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
+    socat OPENSSL-LISTEN:$SOCAT_PORT,reuseaddr,pf=ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
     TCP4:localhost:$RSYNC_JOINER_PORT &
     echo $! >$SOCAT_PID
 
@@ -218,7 +218,7 @@ EOF
     rsync --daemon --address localhost --port $RSYNC_JOINER_PORT --config "$RSYNC_CONF"
 
     # Wait until rsync is up and running and ready.
-    until check_pid_and_port $RSYNC_PID $RSYNC_PORT "rsync"
+    until check_pid_and_port $RSYNC_PID $RSYNC_JOINER_PORT "rsync"
     do
         sleep 0.2
     done
