@@ -46,10 +46,8 @@ cleanup_joiner()
 {
     local PID1=$(cat "$RSYNC_PID" 2>/dev/null || echo 0)
     local PID2=$(cat "$SOCAT_PID" 2>/dev/null || echo 0)
-    [ "0" != "$PID1" ] && kill $PID1 >/dev/null 2>&1 && sleep 0.5 && kill -9 $PID1 >/dev/null 2>&1 \
-    || :
-    [ "0" != "$PID2" ] && kill $PID2 >/dev/null 2>&1 && sleep 0.5 && kill -9 $PID2 >/dev/null 2>&1 \
-    || :
+    [ "0" != "$PID1" ] && kill $PID1 >/dev/null 2>&1 && sleep 0.5 && kill -9 $PID1 >/dev/null 2>&1 || :
+    [ "0" != "$PID2" ] && kill $PID2 >/dev/null 2>&1 && sleep 0.5 && kill -9 $PID2 >/dev/null 2>&1 || :
     rm -rf "$RSYNC_CONF"
     rm -rf "$MAGIC_FILE"
     rm -rf "$RSYNC_PID"
@@ -59,8 +57,7 @@ cleanup_joiner()
 cleanup_donor()
 {
     local PID=$(cat "$SOCAT_PID" 2>/dev/null || echo 0)
-    [ "0" != "$PID" ] && kill $PID >/dev/null 2>&1 && sleep 0.5 && kill -9 $PID >/dev/null 2>&1 \
-    || :
+    [ "0" != "$PID" ] && kill $PID >/dev/null 2>&1 && sleep 0.5 && kill -9 $PID >/dev/null 2>&1 || :
     rm -rf "$MAGIC_FILE"
     rm -rf "$SOCAT_PID"
 }
