@@ -50,7 +50,8 @@ Now, update your my.cnf.  Add/edit the follow to match the value below:
 
     wsrep_sst_method=secure_rsync
 
-    # If you don't already have the Galera replication secured, you can reuse the SSL credentials to secure that as well.  Uncomment the line below to enable that.
+    # If you don't already have the Galera replication secured, you can reuse the SSL credentials to secure that as well.
+    # Uncomment the line below to enable that.
     # wsrep_provider_options="socket.ssl_cert=/etc/percona/ssl/server.crt;socket.ssl_key=/etc/percona/ssl/server.key"
 
 Start up your nodes according to the Percona Cluster guide (first node to create the cluster, second node pointed at the first to join in) and your second node should connect securely over an SSL tunnel to complete the SST.  Voila! :)
