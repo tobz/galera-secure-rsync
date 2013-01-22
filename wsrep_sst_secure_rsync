@@ -101,7 +101,7 @@ then
     fi
 
     # Start up socat to forward our rsync connections to the joiner.
-    socat TCP4-LISTEN:localhost:$RSYNC_DONOR_PORT,reuseaddr \
+    socat TCP4-LISTEN:$RSYNC_DONOR_PORT,reuseaddr \
     OPENSSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
     echo $! >$SOCAT_PID
 
