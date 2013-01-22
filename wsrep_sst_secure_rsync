@@ -44,7 +44,6 @@ MAGIC_FILE="$WSREP_SST_OPT_DATA/secure_rsync_sst_complete"
 
 cleanup_joiner()
 {
-    wsrep_log_info "Joiner cleanup."
     local PID1=$(cat "$RSYNC_PID" 2>/dev/null || echo 0)
     local PID2=$(cat "$SOCAT_PID" 2>/dev/null || echo 0)
     [ "0" != "$PID1" ] && kill $PID1 && sleep 0.5 && kill -9 $PID1 >/dev/null 2>&1 \
@@ -55,18 +54,15 @@ cleanup_joiner()
     rm -rf "$MAGIC_FILE"
     rm -rf "$RSYNC_PID"
     rm -rf "$SOCAT_PID"
-    echo " done." >&2
 }
 
 cleanup_donor()
 {
-    wsrep_log_info "Donor cleanup."
     local PID=$(cat "$SOCAT_PID" 2>/dev/null || echo 0)
     [ "0" != "$PID" ] && kill $PID && sleep 0.5 && kill -9 $PID >/dev/null 2>&1 \
     || :
     rm -rf "$MAGIC_FILE"
     rm -rf "$SOCAT_PID"
-    echo " done." >&2
 }
 
 check_pid()
