@@ -27,12 +27,11 @@ MYUID=$(id -u)
 MYGID=$(id -g)
 
 # Set up our PID locations.
-MYSQLD_PID=$WSREP_SST_OPT_PARENT
 SOCAT_PID="$WSREP_SST_OPT_DATA/$MODULE-socat.pid"
 RSYNC_PID="$WSREP_SST_OPT_DATA/$MODULE-rsync.pid"
 
 # Some socat-specific variables.
-SOCAT_SSL_DIR=$WSREP_SST_OPT_AUTH
+SOCAT_SSL_DIR=/etc/percona/ssl
 
 # Some rsync-specific variables.
 RSYNC_CONF="$WSREP_SST_OPT_DATA/$MODULE.conf"
@@ -167,6 +166,8 @@ then
     echo "done"
 elif [ "$WSREP_SST_OPT_ROLE" = "joiner" ]
 then
+    MYSQLD_PID=$WSREP_SST_OPT_PARENT
+
     # See if rsync is already running.
     if check_pid $RSYNC_PID
     then
