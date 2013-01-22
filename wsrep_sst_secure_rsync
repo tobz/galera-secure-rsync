@@ -79,7 +79,7 @@ check_pid()
 check_pid_and_port()
 {
     local pid_file=$1
-    local pid=$(cat $pid_file)
+    local pid=$(cat $pid_file >/dev/null || echo 0)
     local port=$2
     local service=$3
 
