@@ -120,6 +120,14 @@ then
         trap "exit 3"  INT TERM
         trap cleanup_donor EXIT
 
+        # Pull out the remote address (host:port)
+        SOCAT_ADDR=$WSREP_SST_OPT_ADDR
+        if [ -z "$SOCAT_ADDR" ]
+        then
+            echo "bad joiner address!"
+            exit 64
+        fi
+
         # Start up socat to forward our rsync connections to the joiner.
         socat TCP4:localhost:$RSYNC_DONOR_PORT,reuseaddr \
         OPENSSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
@@ -225,7 +233,7 @@ EOF
     done
 
     # Tell Galera we're ready to get our data.
-    echo "ready $ADDR/$MODULE"
+    echo "ready $ADDR"
 
     # Wait for SST to complete by monitoring for the magic file being written.
     while [ ! -r "$MAGIC_FILE" ] && check_pid "$RSYNC_PID" && \
