@@ -18,6 +18,8 @@
 
 # This is a reference script for secure rsync-based state snapshot transfer.
 
+set -x
+
 . $(dirname $0)/wsrep_sst_common
 
 MODULE="secure_rsync_sst"
@@ -95,7 +97,7 @@ then
 
     # Start up socat to forward our rsync connections to the joiner.
     socat TCP4-LISTEN:$RSYNC_DONOR_PORT,reuseaddr,fork \
-    OPENSSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
+    OPENSSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &>/dev/null &
     echo $! >$SOCAT_PID
 
     if [ $WSREP_SST_OPT_BYPASS -eq 0 ]
@@ -208,7 +210,7 @@ EOF
 
     # Start socat and listen for incoming connections, forwarding them to rsync.
     socat OPENSSL-LISTEN:$SOCAT_PORT,reuseaddr,fork,pf=ip4,cert=$SOCAT_SSL_DIR/server.pem,cafile=$SOCAT_SSL_DIR/client.crt \
-    TCP4:localhost:$RSYNC_JOINER_PORT &
+    TCP4:localhost:$RSYNC_JOINER_PORT &>/dev/null &
     echo $! >$SOCAT_PID
 
     # Wait until socat is up and running and ready.
