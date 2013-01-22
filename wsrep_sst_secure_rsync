@@ -92,6 +92,19 @@ rm -rf "$MAGIC_FILE"
 
 if [ "$WSREP_SST_OPT_ROLE" = "donor" ]
 then
+    # Pull out the remote address (host:port)
+    SOCAT_ADDR=$WSREP_SST_OPT_ADDR
+    if [ -z "$SOCAT_ADDR" ]
+    then
+        echo "bad joiner address!"
+        exit 64
+    fi
+
+    # Start up socat to forward our rsync connections to the joiner.
+    socat TCP4-LISTEN:localhost:$RSYNC_DONOR_PORT,reuseaddr \
+    OPENSSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
+    echo $! >$SOCAT_PID
+
     if [ $WSREP_SST_OPT_BYPASS -eq 0 ]
     then
         # Clear out the "flushed" signal file if it already exists.
@@ -119,19 +132,6 @@ then
         trap "exit 32" HUP PIPE
         trap "exit 3"  INT TERM
         trap cleanup_donor EXIT
-
-        # Pull out the remote address (host:port)
-        SOCAT_ADDR=$WSREP_SST_OPT_ADDR
-        if [ -z "$SOCAT_ADDR" ]
-        then
-            echo "bad joiner address!"
-            exit 64
-        fi
-
-        # Start up socat to forward our rsync connections to the joiner.
-        socat TCP4:localhost:$RSYNC_DONOR_PORT,reuseaddr \
-        OPENSSL:$SOCAT_ADDR,pf=ip4,cafile=$SOCAT_SSL_DIR/server.crt,cert=$SOCAT_SSL_DIR/client.pem &
-        echo $! >$SOCAT_PID
 
         RC=0
         rsync --archive --quiet --no-times --ignore-times --inplace --delete --whole-file \
