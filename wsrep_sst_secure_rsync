@@ -18,8 +18,6 @@
 
 # This is a reference script for secure rsync-based state snapshot transfer.
 
-set -x
-
 . $(dirname $0)/wsrep_sst_common
 
 MODULE="secure_rsync_sst"
@@ -61,6 +59,8 @@ cleanup_joiner()
     rm -rf "$MAGIC_FILE"
     rm -rf "$RSYNC_PID"
     rm -rf "$SOCAT_PID"
+
+    wsrep_log_info "Joiner cleaned up."
 }
 
 cleanup_donor()
@@ -69,6 +69,8 @@ cleanup_donor()
     [ "0" != "$PID" ] && silent_kill $PID || :
     rm -rf "$MAGIC_FILE"
     rm -rf "$SOCAT_PID"
+
+    wsrep_log_info "Donor cleaned up."
 }
 
 check_pid()
@@ -98,7 +100,7 @@ then
     SOCAT_ADDR=$WSREP_SST_OPT_ADDR
     if [ -z "$SOCAT_ADDR" ]
     then
-        echo "bad joiner address!"
+        wsrep_log_error "No joiner address given to the donor script!"
         exit 64
     fi
 
@@ -181,7 +183,7 @@ then
     # See if rsync is already running.
     if check_pid $RSYNC_PID
     then
-        echo "rsync daemon already running."
+        wsrep_log_error "rsync daemon already running."
         exit 114 # EALREADY
     fi
 
@@ -263,7 +265,7 @@ EOF
     # Now do our cleanup - stop socat, rsync, remove temporary files, etc.
     cleanup_joiner
 else
-    echo "Unrecognized role: '$WSREP_SST_OPT_ROLE'"
+    wsrep_log_error "Unrecognized role: '$WSREP_SST_OPT_ROLE'"
     exit 22 # EINVAL
 fi
 
