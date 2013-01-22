@@ -163,7 +163,6 @@ then
         STATE="$WSREP_SST_OPT_GTID"
     fi
 
-    wsrep_log_info "Joiner cleanup."
     # Now server can resume updating data.
     echo "continue"
 
@@ -174,7 +173,7 @@ then
     # Cleanup socat, other files, etc.
     cleanup_donor
 
-    echo "done"
+    echo "done $STATE"
 elif [ "$WSREP_SST_OPT_ROLE" = "joiner" ]
 then
     MYSQLD_PID=$WSREP_SST_OPT_PARENT
