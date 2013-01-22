@@ -192,7 +192,7 @@ then
     if [ -z "$SOCAT_PORT" ]
     then
         # No port specified, use the default.
-        SOCAT_PORT=4445
+        SOCAT_PORT=4444
         ADDR="$(echo $ADDR | awk -F ':' '{ print $1 }'):$SOCAT_PORT"
     fi
 
