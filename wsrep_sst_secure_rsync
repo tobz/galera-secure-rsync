@@ -131,7 +131,7 @@ then
         sync
 
         # Exclude all files except directories (schemas) and InnoDB files.
-        FILTER=(-f '+ /ib_lru_dump' -f '+ /ibdata*' -f '+ /ib_logfile*' -f '+ */' -f '-! */*')
+        FILTER=(-f '+ /ib_lru_dump' -f '+ /ibdata*' -f '+ /ib_logfile*' -f '+ */' -f '- lost+found/' -f '-! */*')
 
         trap "exit 32" HUP PIPE
         trap "exit 3"  INT TERM
