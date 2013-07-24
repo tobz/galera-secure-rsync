@@ -16,7 +16,7 @@ Galera replication communication itself can be secured with SSL, but the SST tra
 How to set it up
 ----------------
 
-_These instructions assume default script locations when following Percona's Percona Cluster set-up guide and assumes you have opened up the recommended ports (in this case, wsrep_sst_secure_rsync uses 4444 by default)_
+_These instructions assume default script locations when following Percona's Percona XtraDB Cluster set-up guide and assumes you have opened up the recommended ports (in this case, wsrep_sst_secure_rsync uses 4444 by default).  They also assume you're on CentOS/RHEL, hence the use of 'yum'.  Replace 'yum' with whatever package manager you are using... or you can build the packages from source.  Whatever floats your boat._
 
 First, let's make sure we have openssl and socat.
 
